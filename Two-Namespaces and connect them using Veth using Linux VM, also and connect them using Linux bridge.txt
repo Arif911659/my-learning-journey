@@ -1,0 +1,261 @@
+Two-Namespaces and connect them using Veth using Linux VM, also and connect them using Linux bridge.
+
+Network namespaces enable the creation of multiple independent network stacks on a single Linux host, providing isolated environments for various applications, users, or services. 
+This article illustrates how to connect network namespaces using virtual Ethernet pairs and a Linux bridge, as well as how to connect the host to these namespaces, thereby enabling network communication and isolation.
+
+What are Linux Namespaces?
+**_Linux namespace_** is an abstraction over resources in the operating system. We can think of a namespace as a box. Inside this box are these system resources, which ones exactly depend on the box’s (namespace) type. 
+There are currently 7 types of namespaces `Cgroup`, `IPC`, `Network`, `Mount`, `PID`, `User`, `UTS`.
+
+#### Virtual Interfaces and Bridges:
+**_Virtual interfaces_** provide us with virtualized representations of physical network interfaces; and the **_bridge_** gives us the virtual equivalent of a switch.
+
+#### What are we going to cover?
+1 —  We are going to create two network namespace(like two isolated servers), two veth pair(like two physical ethernet cable) and a bridge (for routing traffic between namespaces).
+2 —  Then we will configure the bridge as the two namespaces can communicate with each other.
+3 —  Then we will connect the bridge to the host and the internet
+
+**_Step 0:_** Check basic network status on host machine/root namespace. Just need to track the current status for better understanding.
+# list all the interfaces
+sudo ip link
+
+
+1. Create network namespaces
+
+# find the routing table
+sudo route -n
+
+
+Step 1.1:_** Create two network namespace
+```bash
+# add two two network namespaces using "ip netns" command
+
+sudo ip netns add my-ns1
+sudo ip netns add my-ns2
+
+
+# list the created network namespaces
+sudo ip netns list
+
+
+my-ns1
+my-ns2
+
+
+# By convention, network namespace handles created by
+# iproute2 live under `/var/run/netns`
+sudo ls /var/run/netns/
+
+
+my-ns1
+my-ns2
+
+
+Step 1.2:_** By default, network interfaces of created netns are down, even loop interfaces. make them up.
+
+
+sudo ip netns exec my-ns1 ip link set lo up
+sudo ip netns exec my-ns1 ip link
+
+
+
+sudo ip netns exec my-ns2 ip link set lo up
+sudo ip netns exec my-ns2 ip link
+
+
+
+
+
+Step 2.1:_** Create a bridge network on the host
+
+
+sudo ip link add my-br0 type bridge
+
+
+# Up the created bridge and check whether it is created and in UP/UNKNOWN state
+
+
+sudo ip link set my-br0 up
+sudo ip link
+
+
+
+
+
+
+Step 2.2:_** Configure IP to the bridge network
+
+
+sudo ip addr add 10.0.0.1/24 dev my-br0
+
+
+# check whether the ip is configured and also ping to ensure
+
+
+sudo ip addr
+
+Now test bridge is responding or not
+
+ping -c 2 10.0.0.1
+
+PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.
+64 bytes from 10.0.0.1: icmp_seq=1 ttl=64 time=0.122 ms
+64 bytes from 10.0.0.1: icmp_seq=2 ttl=64 time=0.201 ms
+
+--- 10.0.0.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1043ms
+
+Step 3.1:_** Create two veth interface for two network netns, then attach to the bridge and netns
+
+
+# For my-ns1
+
+
+# creating a veth pair which have two ends identical veth0 and ceth0
+sudo ip link add veth0 type veth peer name ceth0
+
+
+# connect veth0 end to the bridge my-br0
+sudo ip link set veth0 master my-br0
+
+
+# up the veth0
+sudo ip link set veth0 up
+
+
+# connect ceth0 end to the netns my-ns1
+sudo ip link set ceth0 netns my-ns1
+
+
+# up the ceth0 using 'exec' to run command inside netns
+sudo ip netns exec my-ns1 ip link set ceth0 up
+
+
+# check the link status
+sudo ip link
+
+
+
+
+# check the link status inside ns1
+sudo ip netns exec my-ns1 ip link
+
+
+# For my-ns2; do the same as my-ns1
+
+
+sudo ip link add veth1 type veth peer name ceth1
+sudo ip link set veth1 master my-br0
+sudo ip link set veth1 up
+sudo ip link set ceth1 netns my-ns2
+sudo ip netns exec my-ns2 ip link set ceth1 up
+
+
+# check the link status
+sudo ip link
+sudo ip netns exec my-ns2 ip link
+
+
+
+
+Step 3.2:_** Now we will we add ip address to the netns veth interfaces and update route table to establish communication with bridge network and it will also allow communication between two netns via bridge;
+
+
+# For my-ns1
+sudo ip netns exec my-ns1 ip addr add 10.0.0.10/24 dev ceth0
+sudo ip netns exec my-ns1 ping -c 2 10.0.0.10
+sudo ip netns exec my-ns1 ip route
+ 
+10.0.0.0/24 dev ceth0 proto kernel scope link src 10.0.0.10
+
+
+# check if you can reach bridge interface
+sudo ip netns exec my-ns1 ping -c 2 10.0.0.1
+
+
+
+
+# For my-ns2
+sudo ip netns exec my-ns2 ip addr add 10.0.0.20/24 dev ceth1
+sudo ip netns exec my-ns2 ping -c 2 10.0.0.20
+sudo ip netns exec my-ns2 ip route
+
+
+10.0.0.0/24 dev ceth1 proto kernel scope link src 10.0.0.20
+
+
+# check if you can reach bridge interface
+sudo ip netns exec my-ns2 ping -c 2 10.0.0.1
+
+
+
+
+Step 4:_** Verify connectivity between two netns and it should work!
+
+
+# For my-ns1:
+# we can log in to netns environment using below;
+# it will be totally isolated from any other network
+sudo nsenter --net=/var/run/netns/ns1
+
+
+# ping to the my-ns1 netns to verify the connectivity
+ping -c 2 10.0.0.20
+
+
+# exit from the my-ns1
+exit
+
+
+# OR ping directly to the my-ns1 netns to verify the connectivity
+sudo ip netns exec my-ns1 ping -c 4 10.0.0.20
+# For my-ns2
+sudo nsenter --net=/var/run/netns/ns2
+
+
+# ping to the ns1 netns to verify the connectivity
+ping -c 2 192.168.1.10
+
+
+
+
+# exit from the my-ns2
+exit
+# OR ping directly to the my-ns2 netns to verify the connectivity
+sudo ip netns exec my-ns2 ping -c 4 10.0.0.10
+
+
+
+
+### Connectivity between two network namespaces via bridge is completed.###
+
+
+• Create two Namespaces and connect them using veth 
+# Create two network namespaces
+ sudo ip netns add my-red-ns1
+sudo ip netns add my-green-ns2
+# Create a veth virtual-interface pair
+sudo ip link add myns-1-eth0 type veth peer name myns-2-eth0
+#Assign the interfaces to the namespaces
+sudo ip link set myns-1-eth0 netns my-red-ns1
+sudo ip link set myns-2-eth0 netns my-green-ns2
+# Change the names of the interfaces (I prefer to use standard Interface
+ sudo ip netns exec my-red-ns1 ip link set myns-1-eth0 name eth0
+sudo ip netns exec my-green-ns2 ip link set myns-2-eth0 name eth0
+# Assign an address to each interface
+ sudo ip netns exec my-red-ns1 ip addr add 192.168.100.1/24 dev eth0
+sudo ip netns exec my-green-ns2 ip addr add 192.168.100.2/24 dev eth0
+#Bring up the interfaces (the veth interfaces the loopback interfaces)
+ sudo ip netns exec my-red-ns1 ip link set lo up
+sudo ip netns exec my-red-ns1 ip link set eth0 up
+sudo ip netns exec my-green-ns2 ip link set lo up
+sudo ip netns exec my-green-ns2 ip link set eth0 up
+#Configure routes
+sudo ip netns exec my-red-ns1 ip route add default via 192.168.100.1 dev eth0
+sudo ip netns exec my-green-ns2 ip route add default via 192.168.100.2 dev eth0
+#Test the connection (in both directions)
+ sudo ip netns exec my-red-ns1 ping -c 1 192.168.100.2
+sudo ip netns exec my-red-ns2 ping -c 1 192.168.100.1
+
+
+
