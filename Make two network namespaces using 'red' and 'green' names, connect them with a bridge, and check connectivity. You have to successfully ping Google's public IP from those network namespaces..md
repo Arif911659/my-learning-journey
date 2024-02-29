@@ -15,33 +15,33 @@ Creating Two Network Namespaces
 Add Namespaces
 First, we add two network namespaces, namespace1 and namespace2, using the ip netns command.
 
-$ sudo ip netns add namespace1
-$ sudo ip netns add namespace2
+ 	$ sudo ip netns add namespace1
+ 	$ sudo ip netns add namespace2
 
 # Check that iproute2 indeed creates the files
 # under `/var/run/netns`.
-sudo ip netns list
-OR
-sudo ls /var/run/netns/
-OR
-tree /var/run/netns/
-├── namespace1
-└── namespace2
+	sudo ip netns list
+		OR
+	sudo ls /var/run/netns/
+		OR
+	tree /var/run/netns/
+	├── namespace1
+	└── namespace2
 
 Once the namespaces have been set up, we can confirm the isolation by taking advantage of ip netns exec and executing some commands there:
 
 # We can verify that inside the namespace, only the
 # loopback interface has been set.
 
-$ sudo ip netns exec namespace1 \
-        ip address show
-$ sudo ip netns exec namespace2 \
-        ip address show
+	$ sudo ip netns exec namespace1 \
+        		ip address show
+	$ sudo ip netns exec namespace2 \
+      			  ip address show
 Enable Loopback Interfaces
 By default, network interfaces of newly created namespaces are down, including loopback interfaces. We need to turn them on.
 
-sudo ip netns exec namespace1 ip link set lo up
-sudo ip netns exec namespace1 ip link
+	sudo ip netns exec namespace1 ip link set lo up
+	sudo ip netns exec namespace1 ip link
 
 sudo ip netns exec namespace2 ip link set lo up
 sudo ip netns exec namespace2 ip link
