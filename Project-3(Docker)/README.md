@@ -1,4 +1,7 @@
 # React and flask small and simple website
+
+![image](https://github.com/Arif911659/my-learning-journey/assets/139946335/57adfb7e-fd68-47b2-8823-ff2270bdb9dd)
+
 Learn More:
 ============>>>>>>>>>>>
 https://medium.com/@arifaka555/containerizing-a-full-stack-web-application-a-step-by-step-guide-e9374f748177
