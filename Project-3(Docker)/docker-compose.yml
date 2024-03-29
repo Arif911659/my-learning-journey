@@ -1,0 +1,26 @@
+# file: docker-compose.yml
+
+version: '3.7'
+
+services:
+  fe:
+    container_name: frontend
+    image: fe:latest
+    build:
+      context: ./fe
+      dockerfile: Dockerfile.fe
+    volumes:
+     - ./nginx.conf:/etc/nginx/nginx.conf
+    ports:
+     - "8080:80"
+    restart: always
+
+  be:
+    container_name: backend
+    image: be:latest
+    build:
+      context: ./be
+      dockerfile: Dockerfile.be
+    ports:
+      - "8000:8000"
+    restart: always

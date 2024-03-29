@@ -1,0 +1,31 @@
+# file: fe/Dockerfile.fe
+
+# Use a node base image
+FROM node:21-alpine as builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package.json ./
+COPY package-lock.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source files
+COPY public public
+COPY src src
+
+# Build the React app
+RUN ls -la .
+RUN npm run build
+RUN ls -la .
+RUN ls -la build
+
+# Stage 2 - Use Nginx to serve the build output
+FROM nginx:1.25-alpine-slim
+
+# Copy the build output from the builder stage to the nginx server directory
+COPY --from=builder /app/public /var/www/html/react-fe/static
+COPY --from=builder /app/build /var/www/html/react-fe/static
