@@ -19,14 +19,23 @@ npm install react react-dom axios
 
 
 package.json
-
 {
+  "name": "react-app",
+  "version": "0.1.0",
+  "private": true,
+  "homepage": ".",
+  "main": "./src/index.js",
+  "files": [
+    "src"
+  ],
   "scripts": {
-    "build": "esbuild src/index.js --bundle --outfile=build/Bundle.js --loader:.js=jsx --format=esm"
+    "build": "esbuild --loader:.js=jsx ./src/index.js --bundle --minify --outdir=build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0"
   },
   "dependencies": {
     "axios": "^1.6.7",
-    "esbuild": "^0.20.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   }
