@@ -1,6 +1,8 @@
 # React and flask small and simple website
-
-[Project Information](#info)
+Learn More:
+============>>>>>>>>>>>
+https://medium.com/@arifaka555/containerizing-a-full-stack-web-application-a-step-by-step-guide-e9374f748177
+<<<<<<<<<<<================
 
 Help with WSL if you want to modify package.json :
 
